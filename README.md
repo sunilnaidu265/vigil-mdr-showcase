@@ -49,18 +49,20 @@ Detection trends, severity, AI review results, top rules and activity patterns.
 
 ## 🪜 Step by step
 
-1. **Something happens on the endpoint.** The LimaCharlie sensor records activity such as a new process.
-2. **A rule raises an alert.** Sigma and managed rules turn suspicious events into detections mapped to MITRE ATT&CK.
-3. **Vigil collects it.** Every 5 minutes, a background job securely pulls new detections. If the laptop was off, it catches up from LimaCharlie's history.
-4. **Secrets get masked.** Passwords and tokens in command lines are hidden before anything is stored or sent to the AI.
-5. **Related alerts are connected.** Detections on the same host are grouped by real process links, or by being close together in time.
-6. **The incident gets a score.** Rule severity, the number of techniques, the variety of rules and sensitive targets such as LSASS all count. Known tools lower the score.
-7. **Vigil waits briefly.** It holds each incident for a few minutes, so late alerts can join before analysis starts.
-8. **The prompt is built.** Vigil combines core investigation rules with the playbooks that match the incident's ATT&CK techniques.
-9. **The local AI investigates.** Ollama reviews the evidence and returns structured JSON, all on the laptop.
-10. **Code checks the answer.** The format is validated, and invented evidence references are rejected. The model gets one retry, then the incident is flagged as failed.
-11. **Results are stored.** Incidents, evidence, verdicts and decisions go into PostgreSQL.
-12. **An analyst decides.** They check the AI's claims against the evidence, then approve, edit or reject the verdict.
+1. **Endpoint telemetry collection:** the LimaCharlie EDR sensor streams host telemetry, including process creation, parent-child relationships, command lines, file hashes and cross-process access events.
+2. **Detection and TTP mapping:** Sigma and managed Detection & Response rules evaluate the event stream. Matches generate detections tagged with MITRE ATT&CK tactics and technique IDs.
+3. **Alert ingestion:** a scheduled collector authenticates with a least-privilege, read-only API key, exchanges it for a short-lived JWT, and polls detection history over TLS. Cursor pagination and a lookback overlap prevent missed events, and detection IDs provide idempotent deduplication.
+4. **Data sanitization:** credential material in command-line arguments, such as tokens and passwords, is redacted before storage or LLM processing. This limits secret exposure in downstream systems.
+5. **Normalization:** vendor-specific detection schemas, including stateful multi-event detections, are parsed into a common incident model with host, user, process lineage, timestamps and ATT&CK context.
+6. **Event correlation:** detections are clustered per host using process atoms, which are unique identifiers that avoid PID reuse, and a bounded time window for related activity. This reduces alert fatigue by turning many alerts into one incident.
+7. **Risk scoring:** a deterministic model weighs rule severity, technique diversity, rule diversity and sensitive targets such as LSASS. Allowlisted tooling reduces the score without suppressing the alert.
+8. **Aggregation window:** incidents are held briefly after their last detection, so late-arriving alerts join before triage. New detections trigger re-analysis.
+9. **Context-aware prompt construction:** core DFIR instructions are combined with up to four playbooks selected by ATT&CK technique, which keeps the prompt inside the small model's context limit.
+10. **Local LLM inference:** a small model on Ollama performs triage at temperature 0 with schema-constrained JSON output. Inference stays on the host, so telemetry isn't sent to a third-party AI service.
+11. **Output validation:** responses are checked against the schema, and every cited event ID is verified against the evidence to catch hallucinated references. Failures get one corrective retry, then the incident is flagged for manual triage.
+12. **IOC defanging:** IPs, domains, URLs and email addresses in AI output are defanged in code, which prevents accidental clicks or resolution of malicious indicators.
+13. **Case management:** incidents, evidence, analyses and analyst decisions persist in PostgreSQL, with process trees and evidence-linked timelines for investigation.
+14. **Analyst triage and disposition:** a human validates each claim against raw telemetry, then approves, edits or rejects the verdict with a reason code such as false positive. Every action is written to an audit trail.
 
 ## 🤖 How the AI model works
 
