@@ -47,6 +47,32 @@ Detection trends, severity, AI review results, top rules and activity patterns.
 
 ![Vigil MDR architecture](docs/architecture.svg)
 
+## 🪜 Step by step
+
+1. **Something happens on the endpoint.** The LimaCharlie sensor records activity such as a new process.
+2. **A rule raises an alert.** Sigma and managed rules turn suspicious events into detections mapped to MITRE ATT&CK.
+3. **Vigil collects it.** Every 5 minutes, a background job securely pulls new detections. If the laptop was off, it catches up from LimaCharlie's history.
+4. **Secrets get masked.** Passwords and tokens in command lines are hidden before anything is stored or sent to the AI.
+5. **Related alerts are connected.** Detections on the same host are grouped by real process links, or by being close together in time.
+6. **The incident gets a score.** Rule severity, the number of techniques, the variety of rules and sensitive targets such as LSASS all count. Known tools lower the score.
+7. **Vigil waits briefly.** It holds each incident for a few minutes, so late alerts can join before analysis starts.
+8. **The prompt is built.** Vigil combines core investigation rules with the playbooks that match the incident's ATT&CK techniques.
+9. **The local AI investigates.** Ollama reviews the evidence and returns structured JSON, all on the laptop.
+10. **Code checks the answer.** The format is validated, and invented evidence references are rejected. The model gets one retry, then the incident is flagged as failed.
+11. **Results are stored.** Incidents, evidence, verdicts and decisions go into PostgreSQL.
+12. **An analyst decides.** They check the AI's claims against the evidence, then approve, edit or reject the verdict.
+
+## 🤖 How the AI model works
+
+- **Runs locally:** the model runs through Ollama, so detection data stays on the machine.
+- **Picks the right guidance:** a small local model can't hold everything at once, so it only gets playbooks relevant to the incident.
+- **Separates trust levels:** trusted context from Vigil stays apart from evidence, which may contain text written by an attacker.
+- **Treats evidence as data:** instructions hidden in logs are never followed, and attempts to steer the AI count as suspicious.
+- **Must show its work:** every claim has to cite event IDs from the evidence.
+- **Returns a fixed format:** verdict, confidence, severity, summary, attack chain, claims, indicators, evidence to collect and recommended actions.
+- **Stays deterministic where it counts:** scoring, grouping, timelines, masking and defanging are done by code, not by the model.
+- **Doesn't get the last word:** its verdict is a starting point for a person, not an automatic action.
+
 ## ✨ Highlights
 
 - **Automated collection:** pulls detections from LimaCharlie every 5 minutes, and catches up after downtime
