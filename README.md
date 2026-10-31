@@ -104,14 +104,6 @@ Detection trends, severity, AI review results, top rules and activity patterns.
 - Least-privilege, read-only access to detection data
 - Secrets stay out of the code
 
-## 🚧 Honest status
-
-This is a working lab project, not a production security service. It doesn't block attacks.
-
-The pipeline runs end to end, but AI verdicts are still unreliable and accuracy hasn't been
-measured, which is exactly why a person reviews every incident. Next up: code-based guardrails,
-an evaluation set, rule tuning, and a feedback loop from analyst decisions.
-
 ---
 
 <div align="center">
